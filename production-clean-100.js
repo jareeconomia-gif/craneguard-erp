@@ -16,13 +16,25 @@
     }
   }catch{}
 
-  // Mostrar claramente que es el build limpio de producción.
-  setTimeout(()=>{
+  function cleanInternalLabels(){
     document.querySelectorAll('body *').forEach(n=>{
       if(n.childNodes.length!==1 || n.firstChild?.nodeType!==3) return;
-      const tx=(n.textContent||'').trim();
-      if(/^BUILD 9\./i.test(tx) || /^BUILD 10\./i.test(tx)) n.textContent='BUILD 10.0 · PRODUCCIÓN LIMPIA';
-      else if(/^Build 9\./i.test(tx) || /^Build 10\./i.test(tx)) n.textContent='Build 10.0';
+      const tx=(n.textContent||'').replace(/\s+/g,' ').trim();
+      if(/^BUILD\s+\d/i.test(tx) || /^Build\s+\d/i.test(tx)){
+        n.style.display='none';
+        return;
+      }
+      if(/^(ERP\s*V\d+\s*·\s*)?RENDER\s*\+\s*POSTGRESQL$/i.test(tx) || /^ERP\s*V\d+\s*·\s*RENDER\s*\+\s*POSTGRESQL$/i.test(tx)){
+        n.style.display='none';
+      }
     });
-  },500);
+  }
+
+  // La interfaz se renderiza dinámicamente; limpiar etiquetas internas durante los primeros segundos.
+  let runs=0;
+  const timer=setInterval(()=>{
+    cleanInternalLabels();
+    runs+=1;
+    if(runs>=12) clearInterval(timer);
+  },400);
 })();
