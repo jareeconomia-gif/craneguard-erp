@@ -108,20 +108,6 @@ async function syncFirstAdminFromEnv() {
   }
 }
 
-function ensurePublishingFixLoaded() {
-  const candidates = [path.join(__dirname, 'index.html'), path.join(__dirname, 'public', 'index.html')];
-  const tag = '<script src="/reporting-publish-fix.js?v=9.4.0"></script>';
-  for (const file of candidates) {
-    if (!fs.existsSync(file)) continue;
-    let html = fs.readFileSync(file, 'utf8');
-    if (!html.includes('/reporting-publish-fix.js')) {
-      html = html.includes('</body>') ? html.replace('</body>', `${tag}</body>`) : html + tag;
-      fs.writeFileSync(file, html, 'utf8');
-      console.log(`CraneGuard: fix de publicación de formularios habilitado en ${path.relative(__dirname,file)}.`);
-    }
-  }
-}
-
 function appendDelegatedPublishFix() {
   const delegateFile = path.join(__dirname, 'reporting-click-delegate.js');
   const targets = [path.join(__dirname, 'reporting-production.js'), path.join(__dirname, 'public', 'reporting-production.js')];
@@ -144,7 +130,6 @@ function appendDelegatedPublishFix() {
   try {
     await waitForPostgres();
     await syncFirstAdminFromEnv();
-    ensurePublishingFixLoaded();
     appendDelegatedPublishFix();
     require('./server.js');
   } catch (error) {
