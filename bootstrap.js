@@ -108,21 +108,34 @@ async function syncFirstAdminFromEnv() {
   }
 }
 
-function appendDelegatedPublishFix() {
-  const delegateFile = path.join(__dirname, 'reporting-click-delegate.js');
-  const targets = [path.join(__dirname, 'reporting-production.js'), path.join(__dirname, 'public', 'reporting-production.js')];
-  if (!fs.existsSync(delegateFile)) {
-    console.warn('CraneGuard: reporting-click-delegate.js no existe; no se pudo activar el listener delegado.');
+function installFrontendBuild98() {
+  const rootActions = path.join(__dirname, 'reporting-actions-98.js');
+  if (!fs.existsSync(rootActions)) {
+    console.warn('CraneGuard: reporting-actions-98.js no existe; no se pudo instalar Build 9.8.');
     return;
   }
-  const patch = fs.readFileSync(delegateFile, 'utf8');
-  for (const target of targets) {
-    if (!fs.existsSync(target)) continue;
-    let current = fs.readFileSync(target, 'utf8');
-    if (!current.includes('__cgPublishDelegate96')) {
-      fs.writeFileSync(target, current + '\n\n' + patch + '\n', 'utf8');
-      console.log(`CraneGuard: listener delegado de Publicar revisión activado en ${path.relative(__dirname,target)}.`);
-    }
+
+  const publicDir = path.join(__dirname, 'public');
+  if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+  const publicActions = path.join(publicDir, 'reporting-actions-98.js');
+  fs.copyFileSync(rootActions, publicActions);
+
+  const targets = [path.join(__dirname, 'index.html'), path.join(publicDir, 'index.html')];
+  const tag = '<script src="/reporting-actions-98.js?v=9.8.0"></script>';
+  for (const file of targets) {
+    if (!fs.existsSync(file)) continue;
+    let html = fs.readFileSync(file, 'utf8');
+
+    // Quitar inyecciones/parches anteriores para evitar dobles listeners.
+    html = html.replace(/<script[^>]+reporting-publish-fix\.js[^>]*><\/script>/gi, '');
+    html = html.replace(/<script[^>]+reporting-actions-98\.js[^>]*><\/script>/gi, '');
+
+    // Romper caché del módulo principal sin cambiar la ruta del servidor.
+    html = html.replace(/\/reporting-production\.js\?v=[^"']+/g, '/reporting-production.js?v=9.8.0');
+
+    html = html.includes('</body>') ? html.replace('</body>', `${tag}</body>`) : html + tag;
+    fs.writeFileSync(file, html, 'utf8');
+    console.log(`CraneGuard: Build 9.8 instalado en ${path.relative(__dirname, file)}.`);
   }
 }
 
@@ -130,7 +143,7 @@ function appendDelegatedPublishFix() {
   try {
     await waitForPostgres();
     await syncFirstAdminFromEnv();
-    appendDelegatedPublishFix();
+    installFrontendBuild98();
     require('./server.js');
   } catch (error) {
     console.error('CraneGuard: no se pudo iniciar después de preparar PostgreSQL:', error);
