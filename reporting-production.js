@@ -53,3 +53,70 @@ function msg(text,ok=false){try{toast(text)}catch{};let b=el('cgPublishFeedback'
 function captureQuestion(){if(!S?.qedit||!el('qText'))return;const f=findForm(S.form),q=(f?.questions||[]).find(x=>x.uid===S.qedit);if(!q)return;q.text=v('qText');q.help=v('qHelp');q.type=v('qType');q.scope=v('qScope')||'Equipo';q.perEquipment=q.scope==='Equipo';q.options=v('qOptions');q.required=c('qReq');q.visibility={tech:c('qTech'),internal:true,pdf:c('qPdf'),client:c('qClient')};q.unit=v('qUnit');q.decimals=Number(v('qDec')||2);q.min=v('qMin');q.max=v('qMax');q.system=v('qSystem');q.component=v('qComponent');q.ruleConfig={enabled:c('qRuleEnabled'),operator:v('qOperator')||'equals',value:v('qRuleValue'),severity:v('qSeverity')||'MEDIO',requirePhoto:c('qPhoto'),requireComment:c('qComment'),createFinding:c('qFinding'),runAI:c('qAI'),findParts:c('qParts'),checkStock:c('qStock')}}
 window.publishConfiguredForm=async function(id){const btn=[...document.querySelectorAll('button')].find(x=>/Publicar revisión/i.test(x.textContent||'')),old=btn?.textContent;try{if(btn){btn.disabled=true;btn.textContent='Publicando…'}const f=findForm(id)||findForm(S.form);if(!f)throw new Error('No se encontró el formulario activo.');if(f.state!=='Borrador')throw new Error('Esta revisión ya no está en borrador.');captureQuestion();if(el('fCode'))f.code=v('fCode')||f.code;if(el('fName'))f.name=v('fName')||f.name;if(el('fCategory'))f.category=v('fCategory')||f.category;if(el('fDesc'))f.description=v('fDesc');if(!(f.questions||[]).length)throw new Error('Agrega al menos una pregunta antes de publicar.');for(let i=0;i<f.questions.length;i++){const q=f.questions[i];if(!String(q.text||'').trim())throw new Error(`La pregunta ${i+1} no tiene texto.`);if(!String(q.type||'').trim())throw new Error(`La pregunta ${i+1} no tiene tipo.`);if(q.ruleConfig?.enabled&&!String(q.ruleConfig.value||'').trim())throw new Error(`La pregunta ${i+1} tiene una regla activa pero falta el valor de comparación.`)}const saved=await api('/api/reporting/forms/'+encodeURIComponent(f.uid),{method:'PATCH',body:{code:f.code,name:f.name,category:f.category,description:f.description||'',questions:f.questions||[],audit:f.audit||[]}});const ix=(S.data.reportV2.forms||[]).findIndex(x=>x.uid===f.uid);if(ix>=0)S.data.reportV2.forms[ix]=saved.form;S.form=saved.form.uid;const pub=await api('/api/reporting/forms/'+encodeURIComponent(saved.form.uid)+'/publish',{method:'POST'});await reportingReload();S.form=pub.form.uid;msg(`Formulario ${pub.form.code} ${pub.form.version} publicado correctamente.`,true);go('formLibrary')}catch(e){console.error(e);msg('No se pudo publicar: '+(e?.message||String(e)))}finally{if(btn){btn.disabled=false;btn.textContent=old||'Publicar revisión'}}};
 })();
+
+/* Build 9.5 · acciones primarias de formulario claramente clickeables */
+(function(){
+  const STYLE_ID='cg-report-actions-95';
+  function injectStyle(){
+    if(document.getElementById(STYLE_ID)) return;
+    const s=document.createElement('style');
+    s.id=STYLE_ID;
+    s.textContent=`
+      .cfg-actions{display:flex!important;gap:12px!important;align-items:center!important;flex-wrap:wrap!important}
+      .cfg-actions .cg-save-action,.cfg-actions .cg-publish-action{appearance:none!important;-webkit-appearance:none!important;min-height:50px!important;border-radius:13px!important;padding:0 22px!important;font-weight:900!important;font-size:15px!important;line-height:1!important;cursor:pointer!important;user-select:none!important;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:9px!important}
+      .cfg-actions .cg-save-action{background:#ffffff!important;color:#122033!important;border:1.5px solid #c8d4e5!important;box-shadow:0 5px 14px rgba(15,23,42,.08)!important}
+      .cfg-actions .cg-save-action:hover{background:#f7faff!important;border-color:#9fb4d0!important;transform:translateY(-2px)!important;box-shadow:0 10px 22px rgba(15,23,42,.12)!important}
+      .cfg-actions .cg-publish-action{background:linear-gradient(135deg,#1f62ee 0%,#2455d9 100%)!important;color:#fff!important;border:2px solid rgba(255,255,255,.92)!important;box-shadow:0 10px 26px rgba(32,91,220,.38),inset 0 1px 0 rgba(255,255,255,.24)!important;min-width:205px!important}
+      .cfg-actions .cg-publish-action:hover{background:linear-gradient(135deg,#2e73ff 0%,#1f4ac8 100%)!important;transform:translateY(-2px) scale(1.01)!important;box-shadow:0 15px 32px rgba(32,91,220,.48),inset 0 1px 0 rgba(255,255,255,.28)!important}
+      .cfg-actions .cg-publish-action:active,.cfg-actions .cg-save-action:active{transform:translateY(0) scale(.985)!important}
+      .cfg-actions .cg-publish-action:focus-visible,.cfg-actions .cg-save-action:focus-visible{outline:3px solid #ffd400!important;outline-offset:3px!important}
+      .cfg-actions .cg-publish-action:disabled{cursor:wait!important;opacity:.72!important;transform:none!important;box-shadow:none!important}
+      .cg-action-hint{width:100%;font-size:11px!important;color:rgba(255,255,255,.72)!important;text-align:right!important;margin-top:-4px!important}
+    `;
+    document.head.appendChild(s);
+  }
+  function enhanceFormActions(){
+    injectStyle();
+    const actions=document.querySelector('.cfg-hero .cfg-actions');
+    if(!actions) return;
+    const buttons=[...actions.querySelectorAll('button')];
+    const saveBtn=buttons.find(b=>/^Guardar$/i.test((b.textContent||'').trim())||/Guardar cambios/i.test(b.textContent||''));
+    const publishBtn=buttons.find(b=>/Publicar revisión/i.test(b.textContent||''));
+    if(saveBtn){
+      saveBtn.classList.add('cg-save-action');
+      saveBtn.type='button';
+      saveBtn.innerHTML='<span aria-hidden="true">💾</span><span>Guardar cambios</span>';
+      saveBtn.title='Guardar el formulario como borrador';
+      saveBtn.onclick=function(ev){ev.preventDefault();ev.stopPropagation();return window.saveFormMeta?.()};
+    }
+    if(publishBtn){
+      publishBtn.classList.add('cg-publish-action');
+      publishBtn.type='button';
+      publishBtn.innerHTML='<span aria-hidden="true">✓</span><span>Publicar revisión</span>';
+      publishBtn.title='Guardar y publicar esta revisión para poder usarla en plantillas';
+      publishBtn.onclick=function(ev){ev.preventDefault();ev.stopPropagation();return window.publishConfiguredForm?.(S.form)};
+      if(!actions.querySelector('.cg-action-hint')){
+        const hint=document.createElement('div');
+        hint.className='cg-action-hint';
+        hint.textContent='Publicar bloquea esta revisión y la habilita para Plantillas.';
+        actions.appendChild(hint);
+      }
+    }
+    document.querySelectorAll('body *').forEach(n=>{
+      if(n.childNodes.length===1&&n.firstChild?.nodeType===3){
+        const tx=(n.textContent||'').trim();
+        if(tx==='Build 9.2') n.textContent='Build 9.5';
+        if(tx==='BUILD 9.2 · CLICKS ACTIVOS') n.textContent='BUILD 9.5 · PUBLICACIÓN ACTIVA';
+      }
+    });
+  }
+  const currentFormBuilder=window.formBuilder;
+  window.formBuilder=async function(...args){
+    const result=await currentFormBuilder(...args);
+    setTimeout(enhanceFormActions,0);
+    return result;
+  };
+  try{if(typeof V!=='undefined') V.formBuilder=window.formBuilder}catch{}
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(enhanceFormActions,0));
+  else setTimeout(enhanceFormActions,0);
+})();
