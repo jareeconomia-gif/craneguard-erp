@@ -3,8 +3,6 @@ const bcrypt = require('bcryptjs');
 
 const blueprintUrl = process.env.DATABASE_URL_BLUEPRINT;
 if (blueprintUrl) {
-  // Preferimos siempre la URL inyectada directamente por el Blueprint.
-  // Esto evita que una DATABASE_URL manual/vieja en Render deje al servicio apuntando a una BD eliminada.
   process.env.DATABASE_URL = blueprintUrl;
   console.log('CraneGuard: usando DATABASE_URL_BLUEPRINT administrada por Render.');
 }
@@ -42,7 +40,6 @@ async function waitForPostgres() {
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const client = new Client(clientConfig());
-
     try {
       await client.connect();
       await client.query('SELECT 1');
@@ -60,15 +57,11 @@ async function waitForPostgres() {
   throw lastError || new Error('PostgreSQL no estuvo disponible durante el arranque.');
 }
 
-// Recuperación controlada del primer administrador.
-// Se ejecuta UNA sola vez por base de datos y después queda marcada en app_bootstrap_state.
-// Permite recuperar una instalación donde el admin ya existía con un hash anterior distinto
-// a FIRST_ADMIN_PASSWORD, sin convertir FIRST_ADMIN_PASSWORD en una puerta permanente.
 async function repairFirstAdminPasswordOnce() {
-  const email = String(process.env.FIRST_ADMIN_EMAIL || '').trim().toLowerCase();
+  const email = String(process.env.FIRST_ADMIN_EMAIL || 'admin@mkr.com.mx').trim().toLowerCase();
   const password = String(process.env.FIRST_ADMIN_PASSWORD || '');
-  if (!email || password.length < 10) {
-    console.log('CraneGuard: recuperación de admin omitida; FIRST_ADMIN_EMAIL/PASSWORD no están completos.');
+  if (password.length < 10) {
+    console.log('CraneGuard: recuperación de admin omitida; FIRST_ADMIN_PASSWORD no está configurada en Render.');
     return;
   }
 
@@ -89,38 +82,43 @@ async function repairFirstAdminPasswordOnce() {
       )
     `);
 
-    const markerKey = 'first_admin_password_repair_v1';
+    const markerKey = 'first_admin_password_repair_v2';
     const marker = await client.query('SELECT 1 FROM app_bootstrap_state WHERE key=$1', [markerKey]);
     if (marker.rowCount) {
-      console.log('CraneGuard: recuperación única del primer administrador ya fue aplicada anteriormente.');
+      console.log('CraneGuard: recuperación v2 del primer administrador ya fue aplicada anteriormente.');
       return;
     }
 
     const existing = await client.query('SELECT id,email FROM app_users WHERE LOWER(email)=LOWER($1) LIMIT 1', [email]);
-    if (!existing.rowCount) {
-      console.log(`CraneGuard: ${email} aún no existe; server.js lo creará con FIRST_ADMIN_PASSWORD.`);
-      return;
+    const hash = await bcrypt.hash(password, 12);
+
+    await client.query('BEGIN');
+    if (existing.rowCount) {
+      await client.query(
+        `UPDATE app_users
+         SET password_hash=$1,
+             role='admin',
+             active=TRUE,
+             must_change_password=FALSE,
+             password_changed_at=NOW(),
+             updated_at=NOW()
+         WHERE id=$2`,
+        [hash, existing.rows[0].id]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO app_users(email,full_name,role,password_hash,active,must_change_password)
+         VALUES($1,$2,'admin',$3,TRUE,FALSE)`,
+        [email, process.env.FIRST_ADMIN_NAME || 'Administrador MKR', hash]
+      );
     }
 
-    const hash = await bcrypt.hash(password, 12);
-    await client.query('BEGIN');
-    await client.query(
-      `UPDATE app_users
-       SET password_hash=$1,
-           role='admin',
-           active=TRUE,
-           must_change_password=FALSE,
-           password_changed_at=NOW(),
-           updated_at=NOW()
-       WHERE id=$2`,
-      [hash, existing.rows[0].id]
-    );
     await client.query(
       'INSERT INTO app_bootstrap_state(key,detail) VALUES($1,$2::jsonb)',
-      [markerKey, JSON.stringify({ email, action: 'password_repaired_from_first_admin_env' })]
+      [markerKey, JSON.stringify({ email, action: 'password_repaired_from_first_admin_env_v2' })]
     );
     await client.query('COMMIT');
-    console.log(`CraneGuard: credenciales del primer administrador recuperadas una sola vez para ${email}.`);
+    console.log(`CraneGuard: contraseña del administrador sincronizada desde FIRST_ADMIN_PASSWORD para ${email}.`);
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch {}
     throw error;
