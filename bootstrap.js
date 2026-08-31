@@ -1,5 +1,7 @@
 const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 
 const blueprintUrl = process.env.DATABASE_URL_BLUEPRINT;
 if (blueprintUrl) {
@@ -108,10 +110,25 @@ async function syncFirstAdminFromEnv() {
   }
 }
 
+function ensurePublishingFixLoaded() {
+  const candidates = [path.join(__dirname, 'index.html'), path.join(__dirname, 'public', 'index.html')];
+  const tag = '<script src="/reporting-publish-fix.js?v=9.4.0"></script>';
+  for (const file of candidates) {
+    if (!fs.existsSync(file)) continue;
+    let html = fs.readFileSync(file, 'utf8');
+    if (!html.includes('/reporting-publish-fix.js')) {
+      html = html.includes('</body>') ? html.replace('</body>', `${tag}</body>`) : html + tag;
+      fs.writeFileSync(file, html, 'utf8');
+      console.log(`CraneGuard: fix de publicación de formularios habilitado en ${path.relative(__dirname,file)}.`);
+    }
+  }
+}
+
 (async () => {
   try {
     await waitForPostgres();
     await syncFirstAdminFromEnv();
+    ensurePublishingFixLoaded();
     require('./server.js');
   } catch (error) {
     console.error('CraneGuard: no se pudo iniciar después de preparar PostgreSQL:', error);
