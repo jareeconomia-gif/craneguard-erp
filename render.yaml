@@ -25,11 +25,11 @@ services:
       - key: DB_STARTUP_DELAY_MS
         value: "5000"
       - key: FIRST_ADMIN_EMAIL
-        sync: false
+        value: admin@mkr.com.mx
       - key: FIRST_ADMIN_PASSWORD
         sync: false
       - key: FIRST_ADMIN_NAME
-        sync: false
+        value: Administrador MKR
 
 databases:
   - name: craneguard-db
