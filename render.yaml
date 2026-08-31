@@ -12,10 +12,18 @@ services:
         fromDatabase:
           name: craneguard-db
           property: connectionString
+      - key: DATABASE_URL_BLUEPRINT
+        fromDatabase:
+          name: craneguard-db
+          property: connectionString
       - key: DATABASE_SSL
         value: "false"
       - key: SESSION_SECRET
         generateValue: true
+      - key: DB_STARTUP_ATTEMPTS
+        value: "36"
+      - key: DB_STARTUP_DELAY_MS
+        value: "5000"
       - key: FIRST_ADMIN_EMAIL
         sync: false
       - key: FIRST_ADMIN_PASSWORD
