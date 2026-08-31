@@ -57,11 +57,15 @@ async function waitForPostgres() {
   throw lastError || new Error('PostgreSQL no estuvo disponible durante el arranque.');
 }
 
-async function repairFirstAdminPasswordOnce() {
+// FIRST_ADMIN_PASSWORD en Render es la credencial de recuperación del primer administrador.
+// En cada despliegue se sincroniza ese usuario con el secreto configurado en Render.
+async function syncFirstAdminFromEnv() {
   const email = String(process.env.FIRST_ADMIN_EMAIL || 'admin@mkr.com.mx').trim().toLowerCase();
   const password = String(process.env.FIRST_ADMIN_PASSWORD || '');
+  const fullName = String(process.env.FIRST_ADMIN_NAME || 'Administrador MKR').trim();
+
   if (password.length < 10) {
-    console.log('CraneGuard: recuperación de admin omitida; FIRST_ADMIN_PASSWORD no está configurada en Render.');
+    console.warn('CraneGuard: FIRST_ADMIN_PASSWORD no está configurada o tiene menos de 10 caracteres; no se sincronizó el administrador.');
     return;
   }
 
@@ -70,58 +74,35 @@ async function repairFirstAdminPasswordOnce() {
   try {
     const tableCheck = await client.query("SELECT to_regclass('public.app_users') AS table_name");
     if (!tableCheck.rows[0]?.table_name) {
-      console.log('CraneGuard: app_users aún no existe; server.js creará el primer administrador con las variables de Render.');
+      console.log('CraneGuard: app_users aún no existe; server.js creará el primer administrador.');
       return;
     }
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS app_bootstrap_state (
-        key TEXT PRIMARY KEY,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        detail JSONB NOT NULL DEFAULT '{}'::jsonb
-      )
-    `);
-
-    const markerKey = 'first_admin_password_repair_v2';
-    const marker = await client.query('SELECT 1 FROM app_bootstrap_state WHERE key=$1', [markerKey]);
-    if (marker.rowCount) {
-      console.log('CraneGuard: recuperación v2 del primer administrador ya fue aplicada anteriormente.');
-      return;
-    }
-
-    const existing = await client.query('SELECT id,email FROM app_users WHERE LOWER(email)=LOWER($1) LIMIT 1', [email]);
     const hash = await bcrypt.hash(password, 12);
+    const existing = await client.query('SELECT id FROM app_users WHERE LOWER(email)=LOWER($1) LIMIT 1', [email]);
 
-    await client.query('BEGIN');
     if (existing.rowCount) {
       await client.query(
         `UPDATE app_users
          SET password_hash=$1,
+             full_name=COALESCE(NULLIF($2,''),full_name),
              role='admin',
              active=TRUE,
              must_change_password=FALSE,
              password_changed_at=NOW(),
              updated_at=NOW()
-         WHERE id=$2`,
-        [hash, existing.rows[0].id]
+         WHERE id=$3`,
+        [hash, fullName, existing.rows[0].id]
       );
+      console.log(`CraneGuard: contraseña del administrador sincronizada desde FIRST_ADMIN_PASSWORD para ${email}.`);
     } else {
       await client.query(
         `INSERT INTO app_users(email,full_name,role,password_hash,active,must_change_password)
          VALUES($1,$2,'admin',$3,TRUE,FALSE)`,
-        [email, process.env.FIRST_ADMIN_NAME || 'Administrador MKR', hash]
+        [email, fullName, hash]
       );
+      console.log(`CraneGuard: administrador creado desde variables de Render para ${email}.`);
     }
-
-    await client.query(
-      'INSERT INTO app_bootstrap_state(key,detail) VALUES($1,$2::jsonb)',
-      [markerKey, JSON.stringify({ email, action: 'password_repaired_from_first_admin_env_v2' })]
-    );
-    await client.query('COMMIT');
-    console.log(`CraneGuard: contraseña del administrador sincronizada desde FIRST_ADMIN_PASSWORD para ${email}.`);
-  } catch (error) {
-    try { await client.query('ROLLBACK'); } catch {}
-    throw error;
   } finally {
     await client.end();
   }
@@ -130,7 +111,7 @@ async function repairFirstAdminPasswordOnce() {
 (async () => {
   try {
     await waitForPostgres();
-    await repairFirstAdminPasswordOnce();
+    await syncFirstAdminFromEnv();
     require('./server.js');
   } catch (error) {
     console.error('CraneGuard: no se pudo iniciar después de preparar PostgreSQL:', error);
