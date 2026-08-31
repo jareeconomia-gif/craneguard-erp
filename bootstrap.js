@@ -108,34 +108,31 @@ async function syncFirstAdminFromEnv() {
   }
 }
 
-function installFrontendBuild98() {
-  const rootActions = path.join(__dirname, 'reporting-actions-98.js');
+function installFrontendBuild99() {
+  const rootActions = path.join(__dirname, 'reporting-actions-99.js');
   if (!fs.existsSync(rootActions)) {
-    console.warn('CraneGuard: reporting-actions-98.js no existe; no se pudo instalar Build 9.8.');
+    console.warn('CraneGuard: reporting-actions-99.js no existe; no se pudo instalar Build 9.9.');
     return;
   }
 
   const publicDir = path.join(__dirname, 'public');
   if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
-  const publicActions = path.join(publicDir, 'reporting-actions-98.js');
-  fs.copyFileSync(rootActions, publicActions);
+  fs.copyFileSync(rootActions, path.join(publicDir, 'reporting-actions-99.js'));
 
   const targets = [path.join(__dirname, 'index.html'), path.join(publicDir, 'index.html')];
-  const tag = '<script src="/reporting-actions-98.js?v=9.8.0"></script>';
+  const tag = '<script src="/reporting-actions-99.js?v=9.9.0"></script>';
   for (const file of targets) {
     if (!fs.existsSync(file)) continue;
     let html = fs.readFileSync(file, 'utf8');
 
-    // Quitar inyecciones/parches anteriores para evitar dobles listeners.
     html = html.replace(/<script[^>]+reporting-publish-fix\.js[^>]*><\/script>/gi, '');
     html = html.replace(/<script[^>]+reporting-actions-98\.js[^>]*><\/script>/gi, '');
-
-    // Romper caché del módulo principal sin cambiar la ruta del servidor.
-    html = html.replace(/\/reporting-production\.js\?v=[^"']+/g, '/reporting-production.js?v=9.8.0');
+    html = html.replace(/<script[^>]+reporting-actions-99\.js[^>]*><\/script>/gi, '');
+    html = html.replace(/\/reporting-production\.js\?v=[^"']+/g, '/reporting-production.js?v=9.9.0');
 
     html = html.includes('</body>') ? html.replace('</body>', `${tag}</body>`) : html + tag;
     fs.writeFileSync(file, html, 'utf8');
-    console.log(`CraneGuard: Build 9.8 instalado en ${path.relative(__dirname, file)}.`);
+    console.log(`CraneGuard: Build 9.9 instalado en ${path.relative(__dirname, file)}.`);
   }
 }
 
@@ -143,7 +140,7 @@ function installFrontendBuild98() {
   try {
     await waitForPostgres();
     await syncFirstAdminFromEnv();
-    installFrontendBuild98();
+    installFrontendBuild99();
     require('./server.js');
   } catch (error) {
     console.error('CraneGuard: no se pudo iniciar después de preparar PostgreSQL:', error);
