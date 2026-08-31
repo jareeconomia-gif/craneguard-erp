@@ -1,6 +1,6 @@
 {
   "name": "craneguard-erp",
-  "version": "9.3.1",
+  "version": "9.3.2",
   "private": true,
   "description": "CraneGuard ERP - Produccion Render + PostgreSQL + Almacen/Refacciones",
   "main": "bootstrap.js",
