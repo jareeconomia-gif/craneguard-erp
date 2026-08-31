@@ -1,7 +1,7 @@
-/* CraneGuard ERP · Build 9.6 · publicación por delegación de eventos */
+/* CraneGuard ERP · Build 9.6.1 · publicación por delegación de eventos */
 (function(){
-  if (window.__cgPublishDelegate96) return;
-  window.__cgPublishDelegate96 = true;
+  if (window.__cgPublishDelegate961) return;
+  window.__cgPublishDelegate961 = true;
 
   function showMessage(text, ok=false){
     let box=document.getElementById('cgPublishDelegateMessage');
@@ -25,12 +25,8 @@
     try{
       button.disabled=true;
       button.textContent='Publicando…';
-      if(typeof window.publishConfiguredForm!=='function'){
-        throw new Error('La función de publicación no está cargada.');
-      }
-      if(!window.S?.form){
-        throw new Error('No se encontró el formulario activo.');
-      }
+      if(typeof window.publishConfiguredForm!=='function') throw new Error('La función de publicación no está cargada.');
+      if(!window.S?.form) throw new Error('No se encontró el formulario activo.');
       await window.publishConfiguredForm(window.S.form);
     }catch(error){
       console.error('CraneGuard publish delegate:',error);
@@ -53,17 +49,16 @@
     runPublish(button);
   },true);
 
-  // Indicador inequívoco de que este fix está realmente cargado.
+  // Marca la versión una sola vez. No usar MutationObserver aquí:
+  // modificar textContent dentro de un observer puede provocar un bucle de mutaciones y congelar la página.
   function markBuild(){
     document.querySelectorAll('body *').forEach(node=>{
       if(node.childNodes.length!==1 || node.firstChild?.nodeType!==3) return;
       const text=(node.textContent||'').trim();
-      if(/^BUILD 9\.\d/i.test(text)) node.textContent='BUILD 9.6 · EVENTO PUBLICAR ACTIVO';
-      if(/^Build 9\.\d/i.test(text)) node.textContent='Build 9.6';
+      if(/^BUILD 9\.\d/i.test(text) && text!=='BUILD 9.6.1 · PUBLICAR ACTIVO') node.textContent='BUILD 9.6.1 · PUBLICAR ACTIVO';
+      if(/^Build 9\.\d/i.test(text) && text!=='Build 9.6.1') node.textContent='Build 9.6.1';
     });
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',markBuild);
-  else markBuild();
-  const observer=new MutationObserver(markBuild);
-  observer.observe(document.documentElement,{childList:true,subtree:true});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(markBuild,0),{once:true});
+  else setTimeout(markBuild,0);
 })();
