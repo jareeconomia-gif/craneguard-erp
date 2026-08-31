@@ -2,6 +2,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+const { runOneTimeClientCleanup } = require('./client-cleanup');
 
 const blueprintUrl = process.env.DATABASE_URL_BLUEPRINT;
 if (blueprintUrl) {
@@ -108,19 +109,23 @@ async function syncFirstAdminFromEnv() {
   }
 }
 
-function installFrontendBuild99() {
-  const rootActions = path.join(__dirname, 'reporting-actions-99.js');
-  if (!fs.existsSync(rootActions)) {
-    console.warn('CraneGuard: reporting-actions-99.js no existe; no se pudo instalar Build 9.9.');
+function installFrontendBuild100() {
+  const actionsFile = path.join(__dirname, 'reporting-actions-99.js');
+  const cleanFile = path.join(__dirname, 'production-clean-100.js');
+  if (!fs.existsSync(actionsFile) || !fs.existsSync(cleanFile)) {
+    console.warn('CraneGuard: faltan archivos del Build 10.0; no se pudo instalar frontend limpio.');
     return;
   }
 
   const publicDir = path.join(__dirname, 'public');
   if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
-  fs.copyFileSync(rootActions, path.join(publicDir, 'reporting-actions-99.js'));
+  fs.copyFileSync(actionsFile, path.join(publicDir, 'reporting-actions-99.js'));
+  fs.copyFileSync(cleanFile, path.join(publicDir, 'production-clean-100.js'));
 
   const targets = [path.join(__dirname, 'index.html'), path.join(publicDir, 'index.html')];
-  const tag = '<script src="/reporting-actions-99.js?v=9.9.0"></script>';
+  const actionsTag = '<script src="/reporting-actions-99.js?v=10.0.0"></script>';
+  const cleanTag = '<script src="/production-clean-100.js?v=10.0.0"></script>';
+
   for (const file of targets) {
     if (!fs.existsSync(file)) continue;
     let html = fs.readFileSync(file, 'utf8');
@@ -128,11 +133,13 @@ function installFrontendBuild99() {
     html = html.replace(/<script[^>]+reporting-publish-fix\.js[^>]*><\/script>/gi, '');
     html = html.replace(/<script[^>]+reporting-actions-98\.js[^>]*><\/script>/gi, '');
     html = html.replace(/<script[^>]+reporting-actions-99\.js[^>]*><\/script>/gi, '');
-    html = html.replace(/\/reporting-production\.js\?v=[^"']+/g, '/reporting-production.js?v=9.9.0');
+    html = html.replace(/<script[^>]+production-clean-100\.js[^>]*><\/script>/gi, '');
+    html = html.replace(/\/reporting-production\.js\?v=[^"']+/g, '/reporting-production.js?v=10.0.0');
 
-    html = html.includes('</body>') ? html.replace('</body>', `${tag}</body>`) : html + tag;
+    const tags = `${actionsTag}${cleanTag}`;
+    html = html.includes('</body>') ? html.replace('</body>', `${tags}</body>`) : html + tags;
     fs.writeFileSync(file, html, 'utf8');
-    console.log(`CraneGuard: Build 9.9 instalado en ${path.relative(__dirname, file)}.`);
+    console.log(`CraneGuard: Build 10.0 de producción limpia instalado en ${path.relative(__dirname, file)}.`);
   }
 }
 
@@ -140,7 +147,8 @@ function installFrontendBuild99() {
   try {
     await waitForPostgres();
     await syncFirstAdminFromEnv();
-    installFrontendBuild99();
+    await runOneTimeClientCleanup();
+    installFrontendBuild100();
     require('./server.js');
   } catch (error) {
     console.error('CraneGuard: no se pudo iniciar después de preparar PostgreSQL:', error);
