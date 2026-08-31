@@ -59,8 +59,6 @@ async function waitForPostgres() {
   throw lastError || new Error('PostgreSQL no estuvo disponible durante el arranque.');
 }
 
-// FIRST_ADMIN_PASSWORD en Render es la credencial de recuperación del primer administrador.
-// En cada despliegue se sincroniza ese usuario con el secreto configurado en Render.
 async function syncFirstAdminFromEnv() {
   const email = String(process.env.FIRST_ADMIN_EMAIL || 'admin@mkr.com.mx').trim().toLowerCase();
   const password = String(process.env.FIRST_ADMIN_PASSWORD || '');
@@ -124,11 +122,30 @@ function ensurePublishingFixLoaded() {
   }
 }
 
+function appendDelegatedPublishFix() {
+  const delegateFile = path.join(__dirname, 'reporting-click-delegate.js');
+  const targets = [path.join(__dirname, 'reporting-production.js'), path.join(__dirname, 'public', 'reporting-production.js')];
+  if (!fs.existsSync(delegateFile)) {
+    console.warn('CraneGuard: reporting-click-delegate.js no existe; no se pudo activar el listener delegado.');
+    return;
+  }
+  const patch = fs.readFileSync(delegateFile, 'utf8');
+  for (const target of targets) {
+    if (!fs.existsSync(target)) continue;
+    let current = fs.readFileSync(target, 'utf8');
+    if (!current.includes('__cgPublishDelegate96')) {
+      fs.writeFileSync(target, current + '\n\n' + patch + '\n', 'utf8');
+      console.log(`CraneGuard: listener delegado de Publicar revisión activado en ${path.relative(__dirname,target)}.`);
+    }
+  }
+}
+
 (async () => {
   try {
     await waitForPostgres();
     await syncFirstAdminFromEnv();
     ensurePublishingFixLoaded();
+    appendDelegatedPublishFix();
     require('./server.js');
   } catch (error) {
     console.error('CraneGuard: no se pudo iniciar después de preparar PostgreSQL:', error);
