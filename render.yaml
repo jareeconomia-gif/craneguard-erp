@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: craneguard-erp
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: craneguard-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "false"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FIRST_ADMIN_EMAIL
+        sync: false
+      - key: FIRST_ADMIN_PASSWORD
+        sync: false
+      - key: FIRST_ADMIN_NAME
+        sync: false
+
+databases:
+  - name: craneguard-db
+    databaseName: craneguard
+    user: craneguard

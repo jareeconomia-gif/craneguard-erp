@@ -1,0 +1,19 @@
+ALMACÉN FASE 1
+[OK] Dashboard
+[OK] Catálogo / alta individual
+[OK] Prevención de duplicados
+[OK] Existencia física / reservado / disponible / en compra
+[OK] Reservas por destino
+[OK] REQ-CG
+[OK] Múltiples OC por requisición
+[OK] PDF OC proveedor
+[OK] Compra parcial
+[OK] Recepción / recepción parcial
+[OK] Reserva automática al recibir
+[OK] Material en tránsito
+[OK] Listo para instalar
+[OK] Kardex
+[OK] Importación Excel con revisión
+[OK] PartGuard / StockGuard con validación humana
+[OK] Caso DEMO-001
+[NO] Herramientas / EPP / NFC / kits / calibraciones (Fase 2)
