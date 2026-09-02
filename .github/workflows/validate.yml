@@ -1,0 +1,32 @@
+name: Validate CraneGuard
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate server JavaScript
+        run: |
+          node --check bootstrap.js
+          node --check server.js
+          node --check clients-backend.js
+          node --check operations-backend.js
+      - name: Validate production frontend JavaScript
+        run: |
+          node --check clients-production.js
+          node --check operations-production.js
+          node --check production-scope.js
+          node --check reporting-production.js
+          node --check reporting-actions-99.js
+          node --check warehouse-phase1.js
