@@ -1,12 +1,12 @@
 {
   "name": "craneguard-erp",
-  "version": "11.1.1",
+  "version": "11.3.0",
   "private": true,
   "description": "CraneGuard ERP - plataforma productiva MKR para operación, activos, reportes, refacciones, comercial y trazabilidad",
   "main": "bootstrap.js",
   "scripts": {
     "start": "node bootstrap.js",
-    "check": "node --check bootstrap.js && node --check server.js && node --check clients-backend.js && node --check operations-backend.js && node --check enterprise-backend.js && node frontend-source-fix.js"
+    "check": "node --check bootstrap.js && node --check server.js && node --check clients-backend.js && node --check operations-backend.js && node --check enterprise-backend.js && node --check offline-sync-backend.js && node --check portal-reporting-backend.js && node frontend-source-fix.js && node --check enterprise-completion.js && node --check offline-production.js"
   },
   "engines": {
     "node": ">=20"
