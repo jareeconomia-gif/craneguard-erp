@@ -36,3 +36,77 @@ jobs:
           node --check reporting-production.js
           node --check reporting-actions-99.js
           node --check warehouse-phase1.js
+
+  smoke:
+    needs: syntax
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: craneguard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d craneguard"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/craneguard
+      DATABASE_SSL: 'false'
+      SESSION_SECRET: ci-session-secret-craneguard-1234567890-abcdef
+      FIRST_ADMIN_EMAIL: admin@mkr.com.mx
+      FIRST_ADMIN_PASSWORD: CambiaEstaClave123!
+      FIRST_ADMIN_NAME: Administrador CI
+      NODE_ENV: test
+      PORT: '10000'
+      DB_STARTUP_ATTEMPTS: '10'
+      DB_STARTUP_DELAY_MS: '500'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Start CraneGuard from empty PostgreSQL
+        run: |
+          node bootstrap.js > /tmp/craneguard.log 2>&1 &
+          echo $! > /tmp/craneguard.pid
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:10000/health >/tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            if ! kill -0 $(cat /tmp/craneguard.pid) 2>/dev/null; then
+              cat /tmp/craneguard.log
+              exit 1
+            fi
+            sleep 1
+          done
+          cat /tmp/craneguard.log
+          exit 1
+      - name: Login and test core production APIs
+        run: |
+          curl -fsS -c /tmp/cookies.txt \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"admin@mkr.com.mx","password":"CambiaEstaClave123!"}' \
+            http://127.0.0.1:10000/api/auth/login | tee /tmp/login.json
+          grep -q 'admin@mkr.com.mx' /tmp/login.json
+          curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/clients >/tmp/clients.json
+          curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/operations/bootstrap >/tmp/operations.json
+          curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/enterprise/bootstrap >/tmp/enterprise.json
+          curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/reporting/bootstrap >/tmp/reporting.json
+          curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/warehouse/dashboard >/tmp/warehouse.json
+          grep -q 'requests' /tmp/operations.json
+          grep -q 'assets' /tmp/enterprise.json
+          grep -q 'forms' /tmp/reporting.json
+          grep -q 'total_products' /tmp/warehouse.json
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/craneguard.log || true
