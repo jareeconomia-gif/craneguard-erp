@@ -22,11 +22,16 @@ jobs:
           node --check server.js
           node --check clients-backend.js
           node --check operations-backend.js
+          node --check enterprise-backend.js
       - name: Validate production frontend JavaScript
         run: |
           node --check clients-production.js
           node --check operations-production.js
+          node --check enterprise-production.js
+          node --check offline-production.js
+          node --check sw-production.js
           node --check production-scope.js
+          node --check production-branding.js
           node --check reporting-production.js
           node --check reporting-actions-99.js
           node --check warehouse-phase1.js
