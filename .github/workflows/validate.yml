@@ -23,11 +23,12 @@ jobs:
           node --check clients-backend.js
           node --check operations-backend.js
           node --check enterprise-backend.js
+          node --check frontend-source-fix.js
       - name: Validate production frontend JavaScript
         run: |
           node --check clients-production.js
           node --check operations-production.js
-          node --check enterprise-production.js
+          node frontend-source-fix.js
           node --check offline-production.js
           node --check sw-production.js
           node --check production-scope.js
