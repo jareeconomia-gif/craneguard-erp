@@ -1,12 +1,12 @@
 {
   "name": "craneguard-erp",
-  "version": "9.3.2",
+  "version": "11.1.1",
   "private": true,
-  "description": "CraneGuard ERP - Produccion Render + PostgreSQL + Almacen/Refacciones",
+  "description": "CraneGuard ERP - plataforma productiva MKR para operación, activos, reportes, refacciones, comercial y trazabilidad",
   "main": "bootstrap.js",
   "scripts": {
     "start": "node bootstrap.js",
-    "check": "node --check bootstrap.js && node --check server.js"
+    "check": "node --check bootstrap.js && node --check server.js && node --check clients-backend.js && node --check operations-backend.js && node --check enterprise-backend.js && node frontend-source-fix.js"
   },
   "engines": {
     "node": ">=20"
