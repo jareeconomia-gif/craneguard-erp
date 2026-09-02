@@ -1,110 +1,127 @@
 # CraneGuard ERP · Production Readiness
 
-Estado: **alcance productivo incremental**. No declarar el ecosistema integral 100% productivo hasta cerrar todos los bloques pendientes de este documento.
+Estado: **Release Candidate integral 11.3**.
 
-## Módulos con backend real actualmente
+La aplicación ya no depende de pantallas de maqueta para los módulos habilitados. Las acciones productivas están respaldadas por PostgreSQL/API, permisos server-side, estados vacíos reales y mensajes de error/éxito.
+
+## Alcance productivo
 
 ### Seguridad y administración
-- Autenticación y sesiones: PostgreSQL.
-- Usuarios, contraseñas, roles y estado: PostgreSQL.
+- Autenticación y sesiones PostgreSQL.
+- Usuarios, roles, activación y contraseñas.
+- Administrador inicial por variables seguras de Render.
+- Auditoría de autenticación.
 
 ### Clientes
-- Clientes / expediente maestro: PostgreSQL (`erp_clients`).
-- Plantas, contactos y entidades de facturación dentro del expediente.
+- Expediente maestro de clientes.
+- Plantas, contactos, facturación, crédito y vendedor.
 
-### Núcleo operativo · Build 10.3
-- Solicitudes de servicio reales (`op_service_requests`).
-- Conversión Solicitud → Orden de Servicio sin recaptura (`op_service_orders`).
-- Programación de OS y calendario operativo.
-- Responsable y acompañantes por orden (`op_order_team`).
-- Bandeja restringida para técnicos asignados.
-- Apertura de servicio: llegada, liberación, seguridad, recursos y tiempos (`op_service_openings`).
-- Actividades colaborativas con responsable, progreso, captura y evidencia (`op_activities`).
-- Hallazgos operativos con semáforo técnico y validación de Ingeniería (`op_findings`).
-- Cambios en campo versionados y aprobables (`op_field_changes`).
+### Activos
+- Alta y expediente de grúas/polipastos.
+- Componentes.
+- Fabricante, modelo, serie, capacidad, criticidad y semáforo técnico.
+- Próxima inspección e historial de servicio.
+
+### Contratos / pólizas
+- Pólizas y contratos.
+- Partidas, cantidades y precios.
+- Consumo de partida con validación contra cantidad contratada.
+- Fechas de vigencia integradas al calendario maestro.
+
+### Operación
+- Solicitud de servicio.
+- Solicitud → Orden de Servicio sin recaptura.
+- Programación y calendario.
+- Responsable + acompañantes.
+- Bandeja restringida de técnicos.
+- Apertura de servicio y tiempos.
+- Actividades colaborativas.
+- Hallazgos y semáforo técnico.
+- Validación de Ingeniería para ROJO.
+- Cambios en campo versionados.
 - Cierre de OS con validaciones server-side.
-- Auditoría operativa (`op_audit`).
+- Auditoría operativa.
 
-### Almacén / compras proveedor
-- Almacén / Refacciones Fase 1: PostgreSQL.
-- Requisiciones de compra.
+### Reportes
+- Formularios configurables y versionados.
+- Plantillas configurables y versionadas.
+- Reportes técnicos persistentes.
+- Captura y hallazgos por reglas.
+- Creación de reporte desde OS sin recaptura.
+- Entrega de reportes liberados al portal cliente.
+
+### Refacciones / almacén / compras
+- Catálogo y existencias.
+- Reservas.
+- Requisiciones.
 - OC proveedor.
 - Recepciones.
-- Reservas.
 - Kardex.
 - Importación Excel.
-
-### Reportes configurables
-- Formularios configurables: PostgreSQL.
-- Plantillas de reporte: PostgreSQL.
-- Reportes técnicos configurables y respuestas: PostgreSQL.
-- Hallazgos generados por reglas de reportes: PostgreSQL.
-
-## Bloques que siguen pendientes de migración a producción
-
-### Activos / contratos
-- Catálogo maestro de equipos y componentes.
-- Expediente de equipo totalmente persistente.
-- Pólizas / contratos / partidas / consumos.
-- Calendarios por cliente, póliza y equipo construidos desde esas entidades.
-
-### Integración Operación ↔ Reportes ↔ Refacciones
-- Crear reporte directamente desde una OS productiva sin recaptura de cliente/planta/equipo/equipo técnico.
-- Vincular hallazgo operativo con hallazgo de reporte cuando aplique.
-- Solicitud de refacción desde hallazgo operativo.
-- Instalación de refacciones vinculada a OS con cantidades reales.
-- Cierre de hallazgo posterior a instalación/reinspección.
+- Solicitud de refacción vinculable a OS/hallazgo.
+- Instalación y reinspección/cierre de hallazgo.
 
 ### Comercial
-- Cartera derivada de asignación formal vendedor → cliente.
-- Oportunidades comerciales.
+- Oportunidades.
+- Embudo comercial.
 - Cotizaciones cliente.
-- OC cliente.
-- Autorizaciones de cliente.
-- Embudo comercial real.
+- Registro de OC cliente y autorización de cotización.
+- Seguimiento comercial.
 
 ### Financiero
-- Remisiones.
-- Facturación.
-- Cobranza / pagos.
-- Cierre contractual / extraordinario.
+- Remisiones, facturas, notas de crédito y extraordinarios.
+- Vencimientos.
+- Pagos/cobranza.
+- Saldo calculado desde documentos y pagos reales.
 
-### Ingeniería / IA
-- Biblioteca técnica en servidor; la versión heredada utiliza IndexedDB/localStorage para algunos archivos/datos.
-- Versionado documental completo en servidor.
-- AI Guard con proveedor/modelo real, recuperación documental y trazabilidad de fuente/modelo/confianza.
-- NormGuard / FailureGuard / PartGuard como servicios de IA reales.
+### Biblioteca Técnica / AI Guard
+- Documentos técnicos en PostgreSQL.
+- Archivo original y revisiones/versiones.
+- Estado Vigente/Obsoleto y autorización para consulta.
+- AI Guard documental en modo **Retrieval controlado**, limitado a fuentes autorizadas.
+- La interpretación técnica mantiene validación humana.
+
+> Nota: un modelo generativo externo no se simula. Si MKR desea generación LLM, debe configurarse un proveedor/API autorizado; la aplicación ya funciona sin inventar respuestas y conserva el soporte documental controlado.
 
 ### Offline
-- Cola offline real con sincronización.
-- Resolución de conflictos.
-- Preservación de autoría y evidencia.
-- El antiguo “simular offline” no se considera funcionalidad productiva.
+- PWA/service worker.
+- Cola IndexedDB para escrituras de Operación y Enterprise.
+- Conserva usuario y hora original de captura.
+- Reintento automático al recuperar internet.
+- Conflictos 409 visibles.
+- Resolución explícita: conservar cambio local/reintentar o descartar local.
+- Historial server-side de sincronización (`offline_sync_log`).
 
 ### Portal cliente
-- Relación segura usuario cliente → cuenta / planta.
-- Filtros server-side para impedir acceso cruzado.
-- Autorizaciones y entrega documental reales.
+- Vinculación server-side usuario → cliente.
+- Filtro de cuenta en servidor.
+- Equipos, servicios, cotizaciones, autorizaciones y estado financiero.
+- Reportes entregados filtrados por la cuenta vinculada.
 
-## Regla de entrega
+### Calendario Maestro
+- Órdenes de Servicio programadas.
+- Próximas inspecciones.
+- Fin de pólizas.
+- Vencimientos financieros.
 
-`production-scope.js` limita el menú base a módulos productivos. `operations-production.js` amplía esa lista únicamente con el núcleo operativo Build 10.3, que ya tiene persistencia y API.
+## Pruebas automáticas
 
-Un módulo puede incorporarse a producción solo cuando tenga:
+`.github/workflows/validate.yml` ejecuta en cada push/PR:
 
-1. Tabla/esquema persistente o integración oficial.
-2. API con permisos server-side.
-3. UI de alta/edición/consulta.
-4. Mensajes de éxito/error reales.
-5. Auditoría mínima.
-6. Prueba de recarga y prueba desde segunda sesión/equipo.
-7. Estado vacío real sin datos hardcodeados.
-8. Sin botones que únicamente ejecuten `toast(...)` o muten `localStorage`.
+1. `node --check` de backend y frontend productivo.
+2. Generación y validación de la versión final de `enterprise-production.js`.
+3. PostgreSQL 16 completamente vacío.
+4. Arranque desde cero.
+5. Health check.
+6. Login real del administrador.
+7. Pruebas HTTP sobre Clientes, Operación, Enterprise, Reportes, Almacén y Offline.
 
-## Validación automática
+Un fallo en cualquiera de estas pruebas deja el workflow en rojo.
 
-`.github/workflows/validate.yml` ejecuta `node --check` sobre los archivos JavaScript críticos en cada push a `main` y pull request.
+## Criterio de entrega
 
-## Criterio para declarar “100% productivo”
+Código: **Release Candidate integral**.
 
-Solo después de cerrar todos los bloques pendientes y ejecutar pruebas end-to-end por rol. Mientras tanto, CraneGuard ERP es productivo en los módulos habilitados, sin presentar módulos heredados de maqueta como terminados.
+Antes de entrega formal a cliente, ejecutar UAT en Render con un usuario por rol y un caso real completo: Cliente → Solicitud → OS → Apertura → Actividad → Hallazgo → Reporte → Refacción/Compra → Instalación → Cierre → Cotización/OC → Factura/Pago → Portal.
+
+No se deben reactivar pantallas heredadas que no estén mapeadas a las capas productivas.
