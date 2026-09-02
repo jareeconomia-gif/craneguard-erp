@@ -23,12 +23,15 @@ jobs:
           node --check clients-backend.js
           node --check operations-backend.js
           node --check enterprise-backend.js
+          node --check offline-sync-backend.js
+          node --check portal-reporting-backend.js
           node --check frontend-source-fix.js
       - name: Validate production frontend JavaScript
         run: |
           node --check clients-production.js
           node --check operations-production.js
           node frontend-source-fix.js
+          node --check enterprise-completion.js
           node --check offline-production.js
           node --check sw-production.js
           node --check production-scope.js
@@ -91,7 +94,7 @@ jobs:
           done
           cat /tmp/craneguard.log
           exit 1
-      - name: Login and test core production APIs
+      - name: Login and test production APIs
         run: |
           curl -fsS -c /tmp/cookies.txt \
             -H 'Content-Type: application/json' \
@@ -103,10 +106,12 @@ jobs:
           curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/enterprise/bootstrap >/tmp/enterprise.json
           curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/reporting/bootstrap >/tmp/reporting.json
           curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/warehouse/dashboard >/tmp/warehouse.json
+          curl -fsS -b /tmp/cookies.txt http://127.0.0.1:10000/api/offline/audit >/tmp/offline.json
           grep -q 'requests' /tmp/operations.json
           grep -q 'assets' /tmp/enterprise.json
           grep -q 'forms' /tmp/reporting.json
           grep -q 'total_products' /tmp/warehouse.json
+          grep -q 'sync' /tmp/offline.json
       - name: Show server log on failure
         if: failure()
         run: cat /tmp/craneguard.log || true
